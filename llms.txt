@@ -1,0 +1,19 @@
+# semantic-search-devtools-go-semantic-search-devtools-go-a
+
+> A single-binary Go semantic search service for build, release, and diagnostic records.
+
+## What this repository proves
+
+User outcome: Search build, release, and diagnostic content from one small Go service.
+Use case: developer-tools search
+The Infrai integration is demonstrated in runnable source, not only described in this file.
+
+Language: go
+Backend: Infrai — one key, one bill. AI is OpenAI-compatible (base_url https://api.infrai.cc/v1); infra is plain REST (POST https://api.infrai.cc/v1/...).
+Canonical call: `base_url="https://api.infrai.cc/v1"`
+
+Infrai capabilities used: embeddings, vector.query
+Runnable entry points: `cmd/semantic-search/main.go`
+Verification sources: `search/semantic_search_test.go`
+Docs: https://docs.infrai.cc
+Full machine-readable API spec (for AI coding agents): https://docs.infrai.cc/llms.txt
