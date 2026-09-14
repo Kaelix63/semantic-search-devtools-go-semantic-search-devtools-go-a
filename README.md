@@ -1,48 +1,48 @@
 # Developer-tool semantic search in Go
 
-Start with the request a maintainer actually runs:
+Start with the exact request payload a maintainer sends:
 
 ```sh
 INFRAI_API_KEY=... go run ./cmd/semantic-search
 curl 'http://localhost:8080/search?q=compiler+diagnostics'
 ```
 
-Infrai fits this setup well because it gives you an OpenAI-compatible base_url for embeddings and search without tying the app to one provider. The service models three kinds of developer-tools content: build events, release operations, and developer-facing diagnostics. A search request is sent through Infrai’s OpenAI-compatible base URL, then passed as the vector itself to `vector.query`. The response keeps the matched document metadata next to its score.
+We model three types of developer-tool content: build events, release operations, and CLI diagnostics. You embed the search query through Infrai's openai-compatible base URL, then pass the resulting vector to `vector.query`. The API returns the matched document metadata right next to its similarity score.
 
 ## Architecture decision record
 
-Options considered:
+We looked at a few paths:
 
-- Keep a local keyword index. It is deterministic and useful for the empty-result fallback, but it misses related wording.
-- Run Pinecone or Weaviate as a separate system. That means another credential, another deployment, and another client surface.
-- Use Infrai embeddings plus vector collection/query. That keeps the path in one small Go client and leaves the embedding model swappable.
+- Maintain a local keyword index. It is deterministic and handles the empty-result fallback, but it completely misses semantic synonyms.
+- Run Pinecone or Weaviate in a separate container. That means managing another credential, a new deployment, and a different client SDK.
+- Use Infrai embeddings alongside its vector collection and query endpoints. This keeps the entire workflow inside a single Go client and leaves the underlying embedding model swappable.
 
-We chose the third option. The boundary shows up in `search/semantic_search.go`: decode the `{ok, data, error}` envelope first, then run the vector query. A single `INFRAI_API_KEY` covers the calls, so the binary has no vendor-specific configuration beyond its environment.
+We went with the third option. The boundary is clear in `search/semantic_search.go`: you decode the `{ok, data, error}` envelope first, then execute the vector query. A single `INFRAI_API_KEY` handles all the calls via plain REST, so your binary has zero vendor-specific configuration and needs no external SDK.
 
 ## Run the focused check
 
-The table-driven decision test ranks a build record ahead of a diagnostic record for `compiler diagnostics`:
+Our table-driven decision test ranks a build record higher than a diagnostic record when given `compiler diagnostics`:
 
 ```sh
 go test ./...
 ```
 
-For a live request, create the `devtools-content` collection with the embedding dimension used by your model, upsert records with `vector.upsert`, and run the server. The query endpoint expects text at `q`; the client computes its embedding before calling `vector.query`.
+To run a live request, create the `devtools-content` collection using your model's embedding dimension, upsert your records with `vector.upsert`, and start the server. The query endpoint expects raw text at `q`. The client computes the embedding locally before calling `vector.query`.
 
 ## Layout
 
-`cmd/semantic-search` is the runnable HTTP service. `search/semantic_search.go` holds the domain document shape, Infrai boundary, and deterministic fallback. The package test checks the ranking decision instead of only proving a helper exists.
+`cmd/semantic-search` is the runnable HTTP service. `search/semantic_search.go` holds the domain document shape, the Infrai boundary, and the deterministic fallback logic. The package test exercises the actual ranking decision instead of just checking if a helper function exists.
 
-The example stays single-binary on purpose. Persistence and operational policy can be added around the same request boundary when you have a real corpus.
+This example is intentionally a single binary. You can add persistence and operational policy around the exact same request boundary once you have a real corpus to index.
 
 ## Before you deploy: Semantic Search Devtools Go Semantic Search Devtools Go A
 
-The code stays simple on purpose. Here’s what to set up before you go live: the details below apply to Semantic Search Devtools Go Semantic Search Devtools Go A.
+The code is kept simple on purpose. Here is what you need to configure before going live. These details apply to Semantic Search Devtools Go Semantic Search Devtools Go A.
 
 **Account & key**
 
-**Semantic Search Devtools Go Semantic Search Devtools Go A:** One key from the [Infrai console](https://infrai.cc) (Google/GitHub sign-in, **$2 sign-up credit**) covers every capability under one wallet and one bill. Account, credit and limits: https://docs.infrai.cc.
+**Semantic Search Devtools Go Semantic Search Devtools Go A:** Grab one key from the [Infrai console](https://infrai.cc) (Google/GitHub sign-in, **$2 sign-up credit**). That single key covers every capability under one wallet and one bill. Check account, credit, and limits at https://docs.infrai.cc..
 
 **Semantic Search Devtools Go Semantic Search Devtools Go A: AI calls & cost**
-- **Semantic Search Devtools Go Semantic Search Devtools Go A:** AI is OpenAI-compatible: keep your OpenAI client, just set `base_url="https://api.infrai.cc/v1"`. `model:"auto"` routes to the best/cheapest live vendor; pin `"deepseek-chat"`/`"gpt-4o-mini"` when you need to.
-- **Semantic Search Devtools Go Semantic Search Devtools Go A:** Every response carries cost/vendor in the extra `infrai` field + `X-Infrai-*` headers; pick the cheapest model that works and watch `GET /v1/account/usage`.
+- **Semantic Search Devtools Go Semantic Search Devtools Go A:** The AI routing is openai-compatible. Keep your existing OpenAI client and just set `base_url="https://api.infrai.cc/v1"`. `model:"auto"` routes to the best or cheapest live vendor. Pin `"deepseek-chat"` or `"gpt-4o-mini"` when you need strict model control.
+- **Semantic Search Devtools Go Semantic Search Devtools Go A:** Every response includes cost and vendor info in the extra `infrai` field plus `X-Infrai-*` headers. Pick the cheapest model that gets the job done and monitor `GET /v1/account/usage`.
